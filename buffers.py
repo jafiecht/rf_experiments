@@ -48,4 +48,4 @@ def make_buffers():
     command2 = 'rm ' + tmp
     subprocess.call(command2, shell=True)
     
-
+make_buffers()

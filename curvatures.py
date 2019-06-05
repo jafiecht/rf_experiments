@@ -29,7 +29,7 @@ def generate_curvatures():
   
   #For every neighborhood size, loop through and create maps
   for neighborhood in neighborhoods:
-    #print(neighborhood)
+    print(neighborhood)
   
     #Create output filepaths
     slfp = outfp + 'slope' + str(neighborhood) + '.tif'
@@ -164,4 +164,4 @@ def calculate(C, x, y):
 
 
 
-
+generate_curvatures()

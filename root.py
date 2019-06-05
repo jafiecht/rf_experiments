@@ -21,107 +21,69 @@ import subprocess
 import json
 import time
 
-def validate_predict(inputObject):
+def validate_predict():
   overall_start = time.time() 
  
-  #Validate user input
-  #############################################################
-  print('\n - Validating user input')
-  start = time.time()
-  try:
-    status = input_checker.check(inputObject)
-    if status != 'OK':
-      return {'status': 400, 'message': status}
-  except:
-    return {'status': 500, 'message': 'Server failure while checking inputs'}
-  print('   Process time: ', time.time() - start)
-
   #Select raster tiles with field boundary
   #############################################################
   print('\n - Downloading elevation data')
   start = time.time()
-  try:
-    status = tile_selector.getDEM()
-    if status != 'OK':
-      return {'status': 400, 'message': status}
-  except:
-    return {'status': 500, 'message': 'Server failure while retrieving elevation data'}
+  #status = tile_selector.getDEM()
   print('   Process time: ', time.time() - start)
 
   #Calculate topographic derivatives
   #############################################################
   print('\n - Calculating slopes and curvatures')
   start = time.time()
-  #try:
   #curvatures.generate_curvatures()
   topo_data = stack.return_topo()
-  #except:
-  #  return {'status': 500, 'message': 'Server failure while calculating topographic derivatives'}
   print('   Process time: ', time.time() - start)
 
   #Create rasterize the shapefile points
   #############################################################
   print('\n - Rasterizing point data')
   start = time.time()
-  try:
-    rasterizer.rasterize()
-    point_data = stack.return_points()
-  except:
-    return {'status': 500, 'message': 'Server failure while rasterizing point data'}
+  #rasterizer.rasterize()
+  point_data = stack.return_points()
   print('   Process time: ', time.time() - start)
 
   #Make buffer distance layers for each known point.
   #############################################################
   print('\n - Creating buffer layers')
   start = time.time()
-  try:
-    buffers.make_buffers()
-    buffer_data = stack.return_buffers()
-  except:
-    return {'status': 500, 'message': 'Server failure while creating point buffer data'}
+  #buffers.make_buffers()
+  buffer_data = stack.return_buffers()
   print('   Process time: ', time.time() - start)
 
   #Test predictions
   #############################################################
   print('\n - Testing model')
   start = time.time()
-  #try:
   scores = validate(point_data, topo_data, buffer_data)
-  #except:
-    #return {'status': 500, 'message': 'Server failure while testing predictions'}
   print('   Process time: ', time.time() - start)
 
   #Make master prediction
   #############################################################
   print('\n - Making final prediction')
   start = time.time()
-  try:
-    predictions = map_predictions(point_data, topo_data, buffer_data)
-  except:
-    return {'status': 500, 'message': 'Server failure while making predictions'}
+  predictions = map_predictions(point_data, topo_data, buffer_data)
   print('   Process time: ', time.time() - start)
 
   #Get Template Data and write data out
   #############################################################
   print('\n - Exporting prediction')
   start = time.time()
-  try:
-    raster_shape, geotrans, proj = stack.template(topo_data)
-    if os.path.isfile('rfprediction.tif'):
-      subprocess.call('rm rfprediction.tif', shell=True)
-    export_functions.output_tif(predictions, raster_shape, geotrans, proj, 'rfprediction.tif')
-  except:
-    return {'status': 500, 'message': 'Server failure while writing predictions to file'}
+  #raster_shape, geotrans, proj = stack.template(topo_data)
+  #if os.path.isfile('rfprediction.tif'):
+    #subprocess.call('rm rfprediction.tif', shell=True)
+  #export_functions.output_tif(predictions, raster_shape, geotrans, proj, 'rfprediction.tif')
   print('   Process time: ', time.time() - start)
 
   #Clean up temporary files  
   #############################################################
   print('\n - Deleting files')
   start = time.time()
-  try:
-    stack.cleanup()
-  except:
-    return {'status': 500, 'message': 'Server failure while removing temporary files'}
+  #stack.cleanup()
   print('   Process time: ', time.time() - start)
   print('   Overall: ', time.time() - overall_start)
   
@@ -129,7 +91,6 @@ def validate_predict(inputObject):
   #############################################################
   print('\n - Done')
   #viewer.show_tif('rfprediction.tif')
-  return {'status': 200, 'file': 'ABC', 'scores': scores}
 
 #This performs an n-fold cross validation test
 def validate(point_data, topo, buffers):
