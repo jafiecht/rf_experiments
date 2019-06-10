@@ -1,158 +1,67 @@
-#This file makes predictions for all the training files
-#then tests each prediction.
+#This file makes predictions for ll desired experimental cases
 
 #Imports
-import input_checker
-import tile_selector
-import curvatures
-import rasterizer
-import buffers
 import stack
 import export_functions
 import metrics
-import viewer
 import numpy as np
-import pandas as pd
 from sklearn.ensemble import ExtraTreesRegressor
-#from sklearn.ensemble import RandomForestRegressor
-import shutil
-import os
-import subprocess
-import json
+from sklearn.ensemble import RandomForestRegressor
 import time
 
-def validate_predict():
+def predict():
   overall_start = time.time() 
  
-  #Select raster tiles with field boundary
+  #Retrieve feature data and raster template
   #############################################################
-  print('\n - Downloading elevation data')
-  start = time.time()
-  #status = tile_selector.getDEM()
-  print('   Process time: ', time.time() - start)
-
-  #Calculate topographic derivatives
-  #############################################################
-  print('\n - Calculating slopes and curvatures')
-  start = time.time()
-  #curvatures.generate_curvatures()
   topo_data = stack.return_topo()
-  print('   Process time: ', time.time() - start)
-
-  #Create rasterize the shapefile points
-  #############################################################
-  print('\n - Rasterizing point data')
-  start = time.time()
-  #rasterizer.rasterize()
   point_data = stack.return_points()
-  print('   Process time: ', time.time() - start)
-
-  #Make buffer distance layers for each known point.
-  #############################################################
-  print('\n - Creating buffer layers')
-  start = time.time()
-  #buffers.make_buffers()
   buffer_data = stack.return_buffers()
+  raster_shape, geotrans, proj = stack.template(topo_data)
+
+  #Make predictions
+  #############################################################
+  print('\n - Making Predictions')
+
+  start = time.time()
+  print('\n   RF w/ combined dataset')
+  predictions = map_predictions(point_data, topo_data, buffer_data, True, True, True)
+  export_functions.output_tif(predictions, raster_shape, geotrans, proj, 'RFCombined.tif')
   print('   Process time: ', time.time() - start)
 
-  #Test predictions
-  #############################################################
-  print('\n - Testing model')
   start = time.time()
-  scores = validate(point_data, topo_data, buffer_data)
+  print('\n   RF w/ topo only')
+  predictions = map_predictions(point_data, topo_data, buffer_data, True, True, False)
+  export_functions.output_tif(predictions, raster_shape, geotrans, proj, 'RFTopo.tif')
   print('   Process time: ', time.time() - start)
 
-  #Make master prediction
-  #############################################################
-  print('\n - Making final prediction')
   start = time.time()
-  predictions = map_predictions(point_data, topo_data, buffer_data)
+  print('\n   RF w/ spatial postion only')
+  predictions = map_predictions(point_data, topo_data, buffer_data, True, False, True)
+  export_functions.output_tif(predictions, raster_shape, geotrans, proj, 'RFSpatial.tif')
   print('   Process time: ', time.time() - start)
 
-  #Get Template Data and write data out
-  #############################################################
-  print('\n - Exporting prediction')
-  start = time.time()
-  #raster_shape, geotrans, proj = stack.template(topo_data)
-  #if os.path.isfile('rfprediction.tif'):
-    #subprocess.call('rm rfprediction.tif', shell=True)
-  #export_functions.output_tif(predictions, raster_shape, geotrans, proj, 'rfprediction.tif')
+  print('\n   ET w/ combined dataset')
+  predictions = map_predictions(point_data, topo_data, buffer_data, False, True, True)
+  export_functions.output_tif(predictions, raster_shape, geotrans, proj, 'ETCombined.tif')
   print('   Process time: ', time.time() - start)
 
-  #Clean up temporary files  
-  #############################################################
-  print('\n - Deleting files')
   start = time.time()
-  #stack.cleanup()
+  print('\n   ET w/ topo only')
+  predictions = map_predictions(point_data, topo_data, buffer_data, False, True, False)
+  export_functions.output_tif(predictions, raster_shape, geotrans, proj, 'ETTopo.tif')
   print('   Process time: ', time.time() - start)
+
+  start = time.time()
+  print('\n   ET w/ spatial postion only')
+  predictions = map_predictions(point_data, topo_data, buffer_data, False, False, True)
+  export_functions.output_tif(predictions, raster_shape, geotrans, proj, 'ETSpatial.tif')
+  print('   Process time: ', time.time() - start)
+
   print('   Overall: ', time.time() - overall_start)
   
-  #Show prediction
-  #############################################################
-  print('\n - Done')
-  #viewer.show_tif('rfprediction.tif')
 
-#This performs an n-fold cross validation test
-def validate(point_data, topo, buffers):
-
-  #Run the function for each filename
-  #############################################################
-  points = list(point_data.keys())
-  value_pairs = list()
-  iteration = 0
-  length = len(points)
-  for test_point in points: 
-
-    #Take the validation point out of the training set
-    #############################################################
-    training_points = points.copy()
-    training_points.remove(test_point)
-    training_buffers = training_points
- 
-    #Assemble the training set
-    #############################################################
-    training_set = list()
-    for training_point in training_points:
-      obs = list()
-      #for feature in topo:
-        #obs.append(feature[point_data[training_point]['index']])
-      for buffer_feature in training_buffers:
-        obs.append(buffers[buffer_feature][point_data[training_point]['index']])
-      obs.append(point_data[training_point]['value'])
-      training_set.append(obs)
-
-    #Assemble the test set
-    #############################################################
-    testing_set = list()
-    obs = list()
-    #for feature in topo:
-      #obs.append(feature[point_data[test_point]['index']])
-    for buffer_feature in training_buffers:
-      obs.append(buffers[buffer_feature][point_data[test_point]['index']])
-    testing_set.append(obs)
-
-    #Generate Prediction
-    #############################################################
-    prediction = train_predict(training_set, testing_set) 
-    
-    value_pairs.append([point_data[test_point]['value'], prediction[0]])
-        
-    #Log Progress
-    #############################################################
-    iteration += 1
-    #print(str(int(iteration/length*90)+5)+'%')
-
-  scores = metrics.generate_metrics(value_pairs)
-
-  print('     R2 Score: ' + str(scores[0]))  
-  print('     RMSE: ' + str(scores[1]))  
-  print('     ME: ' + str(scores[2]))  
-  print('     MAE: ' + str(scores[3]))  
-  print('   test: ', {'R2': scores[0], 'RMSE': scores[1], 'ME': scores[2], 'MAE': scores[3]})
-  return {'R2': scores[0], 'RMSE': scores[1], 'ME': scores[2], 'MAE': scores[3]}
-  
-
-def map_predictions(point_data, topo, buffers):
+def map_predictions(point_data, topo, buffers, useRF, includeTopo, includeBuffers):
   
   #Define iterables
   #############################################################
@@ -164,18 +73,32 @@ def map_predictions(point_data, topo, buffers):
   training_set = list()
   for training_point in points:
     obs = list()
-    for feature in topo:
-      obs.append(feature[point_data[training_point]['index']])
-    for buffer_feature in training_buffers:
-      obs.append(buffers[buffer_feature][point_data[training_point]['index']])
+
+    if includeTopo:
+      for feature in topo:
+        obs.append(feature[point_data[training_point]['index']])
+
+    if includeBuffers:
+      for buffer_feature in training_buffers:
+        obs.append(buffers[buffer_feature][point_data[training_point]['index']])
+
     obs.append(point_data[training_point]['value'])
     training_set.append(obs)
+
+  print('      Length of feature set: ', len(training_set[0]))
   
   #Assemble the prediction set
   #############################################################
-  feature_set = topo.copy()
-  for buffer_feature in training_buffers:
-    feature_set.append(buffers[buffer_feature])
+  feature_set = []
+
+  if includeTopo:
+    feature_set.extend(topo)
+
+  if includeBuffers:
+    for buffer_feature in training_buffers:
+      feature_set.append(buffers[buffer_feature])
+
+  print('      Length of feature set: ', len(feature_set))
 
   #Transform feature_set into 1-d lists
   #############################################################
@@ -192,11 +115,11 @@ def map_predictions(point_data, topo, buffers):
 
   #Generate Predictions
   #############################################################
-  predictions = train_predict(training_set, stack.tolist()) 
+  predictions = train_predict(training_set, stack.tolist(), useRF) 
   return predictions    
 
 ###############################################################
-def train_predict(training_set, prediction_set):
+def train_predict(training_set, prediction_set, useRF):
 
 
   #Split the datasets into feature and value sets
@@ -204,8 +127,13 @@ def train_predict(training_set, prediction_set):
   training_features = [row[0:-1] for row in training_set]
 
   #Define the regressor parameters
-  forest = ExtraTreesRegressor(max_depth=4, n_estimators=4000, min_samples_leaf=4, max_features=.5)
-  #forest = RandomForestRegressor(max_depth=4, n_estimators=2000, min_samples_leaf=4, max_features=.5)
+  if useRF:
+    print('      Random Forest')
+    forest = RandomForestRegressor(max_depth=4, n_estimators=2000, min_samples_leaf=4, max_features=.5)
+  
+  else: 
+    print('      Extra Trees')
+    forest = ExtraTreesRegressor(max_depth=4, n_estimators=4000, min_samples_leaf=4, max_features=.5)
 
   #Fit the forest to the training data
   forest.fit(training_features, training_values)
@@ -219,3 +147,4 @@ def train_predict(training_set, prediction_set):
 
   return predictions
 
+predict()

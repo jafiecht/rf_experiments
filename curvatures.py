@@ -163,5 +163,4 @@ def calculate(C, x, y):
   return slope, profile, plan#, tangential
 
 
-
-generate_curvatures()
+#generate_curvatures()

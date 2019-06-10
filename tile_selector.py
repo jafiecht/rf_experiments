@@ -12,15 +12,11 @@ def getDEM():
   #Load boundary, buffer, then reproject
   #################################################################
   boundary = gpd.read_file('data/rootdata/boundary.shp')
-  print(boundary.crs)
-  boundary = boundary.to_crs({'init': 'epsg:26916'})
-  print(boundary.crs)
   buffered = boundary.copy()
   buffered['geometry'] = buffered['geometry'].buffer(125)
   buffered['geometry'] = buffered['geometry'].envelope
-  buffered = buffered.to_crs({'init': 'epsg:4326'})
-  print(buffered.crs)
   buffered.to_file('data/rootdata/buffered_boundary.shp')
+  buffered = buffered.to_crs({'init': 'epsg:4326'})
 
   #Import the tile extent file, then convert to a geodataframe
   #################################################################
@@ -63,9 +59,9 @@ def getDEM():
     subprocess.call('rm ' + filename, shell=True)
 
   #Convert to UTM 16 and remove the merged file
-  if os.path.isfile('data/topo/WGS84.tif'):
-    subprocess.call('rm data/topo/WGS84.tif', shell=True)
-  subprocess.call('gdalwarp -q -t_srs EPSG:4326 data/topo/merged.tif data/topo/WGS84.tif', shell=True)
+  if os.path.isfile('data/topo/UTM.tif'):
+    subprocess.call('rm data/topo/UTM.tif', shell=True)
+  subprocess.call('gdalwarp -q -t_srs EPSG:26916 data/topo/merged.tif data/topo/UTM.tif', shell=True)
   #subprocess.call('rm data/topo/merged.tif', shell=True)
 
 
@@ -73,7 +69,7 @@ def getDEM():
   if os.path.isfile('data/topo/elev.tif'):
     subprocess.call('rm data/topo/elev.tif', shell=True)
   #subprocess.call('gdalwarp -q -tr 3 3 -cutline data/rootdata/buffered_boundary.shp -crop_to_cutline data/topo/WGS84.tif data/topo/elev.tif', shell=True)
-  subprocess.call('gdalwarp -q -cutline data/rootdata/buffered_boundary.shp -crop_to_cutline data/topo/WGS84.tif data/topo/elev.tif', shell=True)
+  subprocess.call('gdalwarp -q -cutline data/rootdata/buffered_boundary.shp -crop_to_cutline data/topo/UTM.tif data/topo/elev.tif', shell=True)
   #subprocess.call('rm data/topo/WGS84.tif', shell=True)
 
 #getDEM()

@@ -2,9 +2,9 @@ import geopandas
 import json
 import root
 
-rawInput = open('data/apicall/sparse_object.json')
-data = json.load(rawInput)
+#rawInput = open('data/apicall/sparse_object.json')
+#data = json.load(rawInput)
 
-response = root.validate_predict(data)
+response = root.validate_predict()
 
-print('\n   Response: ', response)
+#print('\n   Response: ', response)
